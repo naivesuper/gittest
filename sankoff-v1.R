@@ -2,140 +2,36 @@
 args <- commandArgs(trailingOnly = TRUE)
 
 library("scales")
-## Choose cost matrix ##########################################################
-cost=read.table("~/research/phylogeny/data/cost-eq.txt",sep=" ",header=F)
-
-
-## Input the data ##############################################################
-leaf=read.table(file=paste("sankoffin-",args,".txt",sep=""),sep=" ",header=F)
 
 library("matrixStats")
-colProds(leaf)
+library("plotrix")
+source("~/research/phylogeny/bin/sankoff.R")
 
-leaf=leaf[,which(colProds(leaf) != 1)]
+########## output direction
+out=paste(args,".Rout",sep="")
+zz <- file(out, open = "wt")
+sink(zz)
+sink(zz, type = "message")
 
-coln=ncol(leaf)
+############### load cost matrix 
+cost=read.table("~/research/phylogeny/data/cost-eq-v1.txt",sep=" ",header=F)
+cost=cost[,1:5]
 
+################# input the state data
+leaf=read.table(file=paste("sankoffin-",args,".txt",sep=""),sep=" ",header=F)
 
+################ Simple summary
+print("total sites")
+dim(leaf)[2]
+## leaf=leaf[,which(colProds(leaf) == 1)] look at the total sites no need to exclude invariant sites. they are conserved anyways.
+#print("total invariable sites")
+coln=ncol(leaf);
 
-## Sankoff algorithm inplementation ############################################
-ances=function(site){
-#initializing terminal nodes  
-s1=site[1];s2=site[2];s3=site[3];s4=site[4];s5=site[5];s6=site[6];s7=site[7];s8=site[8];s9=site[9];s10=site[10];s11=site[11];s12=site[12];
-#initializing internal nodes
-s13=s14=s15=s16=s17=s18=s19=s20=s21=s22=s23=rep(0,6)
-## 2nd node
-for(i in 1:6) {s13[i]=cost[i,s2]+cost[i,s3]}
-for(i in 1:6) {s14[i]=cost[i,s4]+cost[i,s5]}
-for(i in 1:6) {s15[i]=cost[i,s7]+cost[i,s8]}
-for(i in 1:6) {s16[i]=cost[i,s10]+cost[i,s11]}
-S13=matrix(rep(t(s13),6),byrow=F,6,6)
-S14=matrix(rep(t(s14),6),byrow=F,6,6)
-S15=matrix(rep(t(s15),6),byrow=F,6,6)
-S16=matrix(rep(t(s16),6),byrow=F,6,6)
-## 3rd node
-S17.13=cost+S13
-S17.13.min=apply(S17.13,2,function(m){c=min(m);return(c)})
-for(i in 1:6) {s17[i]=S17.13.min[i]+cost[i,s1]}
-S18.16=cost+S16
-S18.16.min=apply(S18.16,2,function(m){c=min(m);return(c)})
-for(i in 1:6) {s18[i]=S18.16.min[i]+cost[i,s12]}
-S17=matrix(rep(t(s17),6),byrow=F,6,6)
-S18=matrix(rep(t(s18),6),byrow=F,6,6)
-## 4th node
-S19.17=cost+S17
-S19.14=cost+S14
-S19.17.min=apply(S19.17,2,function(m){c=min(m);return(c)})
-S19.14.min=apply(S19.14,2,function(m){c=min(m);return(c)})
-s19=S19.17.min+S19.14.min
-S19=matrix(rep(t(s19),6),byrow=F,6,6)
-
-S20.19=cost+S19
-S20.19.min=apply(S20.19,2,function(m){c=min(m);return(c)})
-for(i in 1:6) {s20[i]=S20.19.min[i]+cost[i,s6]}
-S20=matrix(rep(t(s20),4),byrow=F,6,6)
-
-S21.20=cost+S20
-S21.15=cost+S15
-S21.20.min=apply(S21.20,2,function(m){c=min(m);return(c)})
-S21.15.min=apply(S21.15,2,function(m){c=min(m);return(c)})
-s21=S21.20.min+S21.15.min
-S21=matrix(rep(t(s21),6),byrow=F,6,6)
-
-S22.21=cost+S21
-S22.21.min=apply(S22.21,2,function(m){c=min(m);return(c)})
-for(i in 1:6) {s22[i]=S22.21.min[i]+cost[i,s9]}
-S22=matrix(rep(t(s22),6),byrow=F,6,6)
-
-S23.22=cost+S22
-S23.18=cost+S18
-S23.22.min=apply(S23.22,2,function(m){c=min(m);return(c)})
-S23.18.min=apply(S23.18,2,function(m){c=min(m);return(c)})
-s23=S23.22.min+S23.18.min
-
-## termination
-s23.min=min(s23)
-s23.state=which(s23==min(s23))
-#print(s23);
-#print(s23.min);
-#print(s23.state);
-                  
-## Backtracing
-if (length(s23.state)==1){
-  slice=S23.22[,s23.state]
-  s22.state=which(slice==min(slice))
-
-  slice=S23.18[,s23.state]
-  s18.state=which(slice==min(slice))
-
-  if (length(s18.state)==1){ #if 18 is determined consider 16
-    slice=S18.16[,s18.state]
-    s16.state=which(slice==min(slice))
-  }else {s16.state=7
-       } #if 18 is ambiguous 16 is ambiguous (encoded as 7)
-
-  if (length(s22.state)==1){
-    slice=S22.21[,s22.state]
-    s21.state=which(slice==min(slice))
-    if (length(s21.state)==1){
-      slice=S21.15[,s21.state]
-      s15.state=which(slice==min(slice))
-      
-      slice=S21.20[,s21.state]
-      s20.state=which(slice==min(slice))
-      if (length(s20.state)==1){
-        slice=S20.19[,s20.state]
-        s19.state=which(slice==min(slice))
-        if (length(s19.state)==1){
-          slice=S19.14[,s19.state]
-          s14.state=which(slice==min(slice))
-
-          slice=S19.17[,s19.state]
-          s17.state=which(slice==min(slice))
-          if (length(s17.state)==1){
-            slice=S17.13[,s17.state]
-            s13.state=which(slice==min(slice))
-          }else{s13.state=7
-          }
-        }else{s17.state=s13.state=s14.state=7
-        }
-      }else {s19.state=s17.state=s13.state=s14.state=7
-      }
-    }else{s20.state=s19.state=s17.state=s13.state=s14.state=s15.state=7
-    }
-  }else{s21.state=s20.state=s19.state=s17.state=s13.state=s14.state=s15.state=7
-  } 
-}else{s22.state=s21.state=s18.state=s16.state=s21.state=s20.state=s19.state=s17.state=s13.state=s14.state=s15.state=7
-}
-
-all.state=list(n23=s23.state,n18=s18.state,n16=s16.state,n22=s22.state,n21=s21.state,n15=s15.state,n20=s20.state,n19=s19.state,n14=s14.state,n17=s17.state,n13=s13.state)
-return(all.state)
-}
-
-## Calculate ancestral states using the ances function #########################
+################ calculate ancestral states using the ances function 
 ances.state=apply(leaf[,1:coln],2,ances)
 
-## Slice the leaf nodes:
+################# raw data retrieval:  all states for all the nodes
+## slice the leaf nodes and make them column vector, the leaf nodes are numbered from 1-12
 n1=leaf[1,];n1=t(n1)
 n2=leaf[2,];n2=t(n2)
 n3=leaf[3,];n3=t(n3)
@@ -148,9 +44,8 @@ n9=leaf[9,];n9=t(n9)
 n10=leaf[10,];n10=t(n10)
 n11=leaf[11,];n11=t(n11)
 n12=leaf[12,];n12=t(n12)
-
-## Retrieve the states for internal nodes:
-n23=sapply(ances.state,"[",i=1) ##to slice the list into seperate nodes
+## retrieve the states for internal nodes, the internal nodes are numbered from 13-23
+n23=sapply(ances.state,"[",i=1) ## to slice the list into seperate nodes
 n18=sapply(ances.state,"[",i=2)
 n16=sapply(ances.state,"[",i=3)
 n22=sapply(ances.state,"[",i=4)
@@ -162,8 +57,9 @@ n14=sapply(ances.state,"[",i=9)
 n17=sapply(ances.state,"[",i=10)
 n13=sapply(ances.state,"[",i=11)
 
-## Find parsimony informative sites
+########## discard ambiguous sites: unambiguous sites meaning all the internal nodes INCLUDING ancestor states should have only 1 state
 l.n23=l.n13=l.n14=l.n15=l.n16=l.n17=l.n18=l.n19=l.n20=l.n21=l.n22=rep(0,coln)
+
 for (i in 1:coln){
   l.n23[i]=length(unlist(n23[i]))
   l.n13[i]=length(unlist(n13[i]))
@@ -177,8 +73,12 @@ for (i in 1:coln){
   l.n21[i]=length(unlist(n21[i]))
   l.n22[i]=length(unlist(n22[i]))
 }
+
 sure=intersect(intersect(intersect(intersect(intersect(intersect(intersect(intersect(intersect(intersect(which(l.n23==1), which(l.n13==1)),which(l.n14==1)),which(l.n15==1)),which(l.n16==1)),which(l.n17==1)),which(l.n18==1)),which(l.n19==1)),which(l.n20==1)),which(l.n21==1)),which(l.n22==1))
-l.n23.1=unlist(n23[sure])
+
+total.unambi=length(sure); # print out total number of unambiguous sites:
+print("total unambiguous site");total.unambi
+
 l.n13.1=unlist(n13[sure])
 l.n14.1=unlist(n14[sure])
 l.n15.1=unlist(n15[sure])
@@ -203,141 +103,15 @@ l.n10.1=n10[sure]
 l.n11.1=n11[sure]
 l.n12.1=n12[sure]
 
+##--pending when it comes to do the stack plot, since all the unambiguous sites would have no change on the ancestral branch without an outgroup, in order to refer changes on the ancestral branch we have to instead use all sites. in other words:
+# 1-to calculate the changes on the other branches, we use unambiguous sites including node 23, if not, there will be ambiguity in other nodes and we cannot calculate changes.
+# 2-to calcualte the change on the ancestral branch, we compare the states for nodes 22 and 18, if they are the same there is no change, if they are different then we infer the change as 1 based on parsimony principle.
 
-
-## Calculate branch length as the change steps
-n23.18=l.n23.1-l.n18.1;#n23.18[which(n23.18!=0)]
-n18.16=l.n18.1-l.n16.1;#n18.16[which(n18.16!=0)]
-n18.12=l.n18.1-l.n12.1;#n18.12[which(n18.12!=0)]
-n23.22=l.n23.1-l.n22.1;#n23.22[which(n23.22!=0)]
-n22.21=l.n22.1-l.n21.1;#n22.21[which(n22.21!=0)]
-n22.9=l.n22.1-l.n9.1;#n22.9[which(n22.9!=0)]
-n21.15=l.n21.1-l.n15.1;#n21.15[which(n21.15!=0)]
-n21.20=l.n21.1-l.n20.1;#n21.20[which(n21.20!=0)]
-n20.19=l.n20.1-l.n19.1;#n20.19[which(n20.19!=0)]
-n20.6=l.n20.1-l.n6.1;#n20.6[which(n20.6!=0)]
-n19.14=l.n19.1-l.n14.1;#n19.14[which(n19.14!=0)]
-n19.17=l.n19.1-l.n17.1;#n19.17[which(n19.17!=0)]
-n17.13=l.n17.1-l.n13.1;#n17.13[which(n17.13!=0)]
-n17.1=l.n17.1-l.n1.1;#n17.1[which(n17.1!=0)]
-n13.2=l.n13.1-l.n2.1;#n13.2[which(n13.2!=0)]
-n13.3=l.n13.1-l.n3.1;#n13.3[which(n13.3!=0)]
-n14.4=l.n14.1-l.n4.1;#n14.4[which(n14.4!=0)]
-n14.5=l.n14.1-l.n5.1;#n14.5[which(n14.5!=0)]
-n15.7=l.n15.1-l.n7.1;#n15.7[which(n15.7!=0)]
-n15.8=l.n15.1-l.n8.1;#n15.8[which(n15.8!=0)]
-n16.10=l.n16.1-l.n10.1;#n16.10[which(n16.10!=0)]
-n16.11=l.n16.1-l.n11.1;#n16.11[which(n16.11!=0)]
-
-
-## Output the transition matrix ###############################################
-x=c(l.n23.1,l.n18.1,l.n18.1,l.n23.1,l.n22.1,l.n22.1,l.n21.1,l.n21.1,l.n20.1,l.n20.1,l.n19.1,l.n19.1,l.n17.1,l.n17.1,l.n13.1,l.n13.1,l.n14.1,l.n14.1,l.n15.1,l.n15.1,l.n16.1,l.n16.1)
-y=c(l.n18.1,l.n16.1,l.n12.1,l.n22.1,l.n21.1,l.n9.1,l.n15.1,l.n20.1,l.n19.1,l.n6.1,l.n14.1,l.n17.1,l.n13.1,l.n1.1,l.n2.1,l.n3.1,l.n4.1,l.n5.1,l.n7.1,l.n8.1,l.n10.1,l.n11.1)
-z=paste(x,y,sep="")
-trans.mat=paste(args[1],".transmat",sep="")
-write.table(table(z),file=trans.mat,row.names=FALSE,col.names=FALSE,quote=FALSE)
-
-#parsimony informative site:
-total.unambi=length(sure);total.unambi
-
-bl1.nol=0.2155
-bl2.nol=0.0756
-bl3.nol=0.0387
-bl4.nol=0.248
-bl5.nol=0.0264
-bl6.nol=0.0651
-bl7.nol=0.0932
-bl8.nol=0.0167
-bl9.nol=0.1354
-bl10.nol=0.0704
-bl11.nol=0.0616
-bl12.nol=0.0466
-bl13.nol=0.1258
-bl14.nol=0.0844
-bl15.nol=0.0598
-bl16.nol=0.1522
-bl17.nol=0
-bl18.nol=0.058
-bl19.nol=0.0862
-bl20.nol=0.0273
-bl21.nol=0.1029
-bl22.nol=0
-
-
-
-##not-normalize by nol overlapping pairs
-#bl22=round(length(n23.18[which(n23.18!=0)])/total.unambi/bl22.nol,4) ##bl indicates branch length
-bl22=0
-bl20=round(length(n18.16[which(n18.16!=0)])/total.unambi,4)
-bl21=round(length(n18.12[which(n18.12!=0)])/total.unambi,4)
-#bl17=round(length(n23.22[which(n23.22!=0)])/total.unambi/bl17.nol,4)
-bl17=0
-bl15=round(length(n22.21[which(n22.21!=0)])/total.unambi,4)
-bl16=round(length(n22.9[which(n22.9!=0)])/total.unambi,4)
-bl14=round(length(n21.15[which(n21.15!=0)])/total.unambi,4)
-bl11=round(length(n21.20[which(n21.20!=0)])/total.unambi,4)
-bl9=round(length(n20.19[which(n20.19!=0)])/total.unambi,4)
-bl10=round(length(n20.6[which(n20.6!=0)])/total.unambi,4)
-bl8=round(length(n19.14[which(n19.14!=0)])/total.unambi,4)
-bl5=round(length(n19.17[which(n19.17!=0)])/total.unambi,4)
-bl3=round(length(n17.13[which(n17.13!=0)])/total.unambi,4)
-bl4=round(length(n17.1[which(n17.1!=0)])/total.unambi,4)
-bl1=round(length(n13.2[which(n13.2!=0)])/total.unambi,4)
-bl2=round(length(n13.3[which(n13.3!=0)])/total.unambi,4)
-bl6=round(length(n14.4[which(n14.4!=0)])/total.unambi,4)
-bl7=round(length(n14.5[which(n14.5!=0)])/total.unambi,4)
-bl12=round(length(n15.7[which(n15.7!=0)])/total.unambi,4)
-bl13=round(length(n15.8[which(n15.8!=0)])/total.unambi,4)
-bl18=round(length(n16.10[which(n16.10!=0)])/total.unambi,4)
-bl19=round(length(n16.11[which(n16.11!=0)])/total.unambi,4)
-
-
-
-##normalize by nol overlapping pairs
-#bl22=round(length(n23.18[which(n23.18!=0)])/total.unambi/bl22.nol,4) ##bl indicates branch length
-#bl22=0
-#bl20=round(length(n18.16[which(n18.16!=0)])/total.unambi/bl20.nol,4)
-#bl21=round(length(n18.12[which(n18.12!=0)])/total.unambi/bl21.nol,4)
-#bl17=round(length(n23.22[which(n23.22!=0)])/total.unambi/bl17.nol,4)
-#bl17=0
-#bl15=round(length(n22.21[which(n22.21!=0)])/total.unambi/bl15.nol,4)
-#bl16=round(length(n22.9[which(n22.9!=0)])/total.unambi/bl16.nol,4)
-#bl14=round(length(n21.15[which(n21.15!=0)])/total.unambi/bl14.nol,4)
-#bl11=round(length(n21.20[which(n21.20!=0)])/total.unambi/bl11.nol,4)
-#bl9=round(length(n20.19[which(n20.19!=0)])/total.unambi/bl9.nol,4)
-#bl10=round(length(n20.6[which(n20.6!=0)])/total.unambi/bl10.nol,4)
-#bl8=round(length(n19.14[which(n19.14!=0)])/total.unambi/bl8.nol,4)
-#bl5=round(length(n19.17[which(n19.17!=0)])/total.unambi/bl5.nol,4)
-#bl3=round(length(n17.13[which(n17.13!=0)])/total.unambi/bl3.nol,4)
-#bl4=round(length(n17.1[which(n17.1!=0)])/total.unambi/bl4.nol,4)
-#bl1=round(length(n13.2[which(n13.2!=0)])/total.unambi/bl1.nol,4)
-#bl2=round(length(n13.3[which(n13.3!=0)])/total.unambi/bl2.nol,4)
-#bl6=round(length(n14.4[which(n14.4!=0)])/total.unambi/bl6.nol,4)
-#bl7=round(length(n14.5[which(n14.5!=0)])/total.unambi/bl7.nol,4)
-#bl12=round(length(n15.7[which(n15.7!=0)])/total.unambi/bl12.nol,4)
-#bl13=round(length(n15.8[which(n15.8!=0)])/total.unambi/bl13.nol,4)
-#bl18=round(length(n16.10[which(n16.10!=0)])/total.unambi/bl18.nol,4)
-#bl19=round(length(n16.11[which(n16.11!=0)])/total.unambi/bl19.nol,4)
-
-
-
-
-#ncol(leaf)
-
-#total.len=sum(bl1,bl2,bl3,bl4,bl5,bl6,bl7,bl8,bl9,bl10,bl11,bl12,bl13,bl14,bl15,bl16,bl17,bl18,bl19,bl20,bl21,bl22)
-#total.len
-
-## Print the newick tree #######################################################
-newick=paste("(((((((dsim:",bl1,",dsec:",bl2,"):",bl3,",dmel:",bl4,"):",bl5,",(dyak:",bl6,",dere:",bl7,"):",bl8,"):",bl9,",dana:",bl10,"):",bl11,",(dpse:",bl12,",dper:",bl13,"):",bl14,"):",bl15,",dwil:",bl16,"):",bl17,",((dvir:",bl18,",dmoj:",bl19,"):",bl20,",dgri:",bl21,"):",bl22,");",sep="")
-treeout=paste(args[1],".newick",sep="")
-write.table(newick,file=treeout,row.names=FALSE,col.names=FALSE,quote=FALSE)
-
-
-## Build data matrix for change step site spectrum ##############################
-be23.18=as.numeric(paste(l.n23.1,l.n18.1,sep="")) #be indicated branch edge
+########### build data matrix for the following analysis. The format is SITE(row) X BRANCH(column)
+#be23.18=as.numeric(paste(l.n23.1,l.n18.1,sep="")) ##ancestral state will be dealt seperately
 be18.16=as.numeric(paste(l.n18.1,l.n16.1,sep=""))
 be18.12=as.numeric(paste(l.n18.1,l.n12.1,sep=""))
-be23.22=as.numeric(paste(l.n23.1,l.n22.1,sep=""))
+#be23.22=as.numeric(paste(l.n23.1,l.n22.1,sep=""))
 be22.21=as.numeric(paste(l.n22.1,l.n21.1,sep=""))
 be22.9=as.numeric(paste(l.n22.1,l.n9.1,sep=""))
 be21.15=as.numeric(paste(l.n21.1,l.n15.1,sep=""))
@@ -356,20 +130,129 @@ be15.7=as.numeric(paste(l.n15.1,l.n7.1,sep=""))
 be15.8=as.numeric(paste(l.n15.1,l.n8.1,sep=""))
 be16.10=as.numeric(paste(l.n16.1,l.n10.1,sep=""))
 be16.11=as.numeric(paste(l.n16.1,l.n11.1,sep=""))
+branch.site=cbind(be18.16,be18.12,be22.21,be22.9,be21.15,be21.20,be20.19,be20.6,be19.14,be19.17,be17.13,be17.1,be13.2,be13.3,be14.4,be14.5,be15.7,be15.8,be16.10,be16.11)
+## the ancestor species is not included in the data matrix right now.
 
-branch.site=cbind(be23.18,be18.16,be18.12,be23.22,be22.21,be22.9,be21.15,be21.20,be20.19,be20.6,be19.14,be19.17,be17.13,be17.1,be13.2,be13.3,be14.4,be14.5,be15.7,be15.8,be16.10,be16.11)
-change.test=matrix(as.numeric(branch.site%%11!=0),nrow=length(be23.18))
-change.step=rep(0,length(be23.18))
-for (i in 1:length(be23.18)) {
-change.step[i]=as.vector(table(change.test[i,])[2])
-}
-for (i in 1:length(be23.18)) {
-if (is.na(change.step[i])){
-change.step[i]=0}
+################ States composition in the common ancestor :
+l.n23.1=as.vector(unlist(n23[sure])) ## tmp use of umbiguous states only.
+print("ancestor with state 1")
+ances.1=length(l.n23.1[which(l.n23.1==1)]); ances.1
+print("ancestor with state 2")
+ances.2=length(l.n23.1[which(l.n23.1==2)]);ances.2
+print("ancestor with state 3")
+ances.3=length(l.n23.1[which(l.n23.1==3)]);ances.3
+print("ancestor with state 4")
+ances.4=length(l.n23.1[which(l.n23.1==4)]);ances.4 
+print("ancestor with state 5")
+ances.5=length(l.n23.1[which(l.n23.1==5)]);ances.5
+
+
+############################ Ancestral states inference ########################################################
+## generate leaf states plot
+tablenorm=function(x){ ## the input is of the class of table
+   tmp=table(as.matrix(x))
+  if (is.na(tmp["1"])){tmp["1"]=0}
+  if (is.na(tmp["2"])){tmp["2"]=0}
+  if (is.na(tmp["3"])){tmp["3"]=0}
+  if (is.na(tmp["4"])){tmp["4"]=0}
+  if (is.na(tmp["5"])){tmp["5"]=0}
+   tmp=as.matrix(tmp)
+   return(tmp)
+ }
+
+## data structure, leaf is data frame convert to matrix and then calcuate frequency by table and convert to matrix again.
+leaf.plot=c()
+for (i in 1: 12){
+tmp=tablenorm(leaf[i,]) 
+leaf.plot=cbind(leaf.plot,as.matrix(tmp))
 }
 
-stepout=paste(args[1],"-change-step.txt",sep="")
-write.table(change.step,file=stepout,row.names=FALSE,col.names=FALSE,quote=FALSE)
+## deal with ancestral node
+ances.plot=c()
+tmp=sapply(n23,length)
+one.state=unlist(n23[which(tmp==1)])
+two.state=unlist(n23[which(tmp==2)])
+one.state=tablenorm(one.state)
+two.state=tablenorm(two.state)/2
+
+if (max(tmp)==3){
+three.state=unlist(n23[which(tmp==3)])
+three.state=tablenorm(three.state)/3
+ances.plot=one.state+two.state+three.state
+} else if (max(tmp)==2){
+  ances.plot=one.state+two.state
+} else if (max(tmp)==4){
+three.state=unlist(n23[which(tmp==3)])
+three.state=tablenorm(three.state)/3
+four.state=unlist(n23[which(tmp==4)])
+four.state=tablenorm(four.state)/4
+ances.plot=one.state+two.state+three.state+four.state
+} else if (max(tmp)==5){
+three.state=unlist(n23[which(tmp==3)])
+three.state=tablenorm(three.state)/3
+four.state=unlist(n23[which(tmp==4)])
+four.state=tablenorm(four.state)/4
+five.state=unlist(n23[which(tmp==5)])
+five.state=tablenorm(five.state)/5
+ances.plot=one.state+two.state+three.state+four.state+five.state
+}
+
+state.spectrum=cbind(ances.plot,leaf.plot)/dim(leaf)[2]
+colnames(state.spectrum)=c("ances", "dmel", "dsim","dsec","dyak","dere","dana","dpse","dper","dwil","dvir","dmoj","dgri")
+
+file=paste(args,"_state_spectrum.svg",sep="")
+svg(file,width=6,height=6)
+test=barplot(state.spectrum,col=c("blue","red","orange","yellow","green"),xlab="Species",ylab="Percentage",cex.main=0.6,xaxt="n",yaxt="n")
+axis(1,at=test,las=1,labels=c("ances", "dmel", "dsim","dsec","dyak","dere","dana","dpse","dper","dwil","dvir","dmoj","dgri"),cex.axis=0.6, tck=0.01)
+axis(2,las=1,tck=0.01,cex.lab=0.7, cex.axis=0.6)
+dev.off()
+
+###########################Evolutionary events inference##############################################################
+################### do row sums / column /color sums for the data matrix (row-pairs[when]; column-branches[where]; color-events[what])
+## data matrix sorting:
+site.change.raw=apply(branch.site,1,function(x){return(length(which(x%%11!=0)))}) ## calculate row-wise events
+branch.site.count=cbind(branch.site,l.n23.1,site.change.raw) ## implement with ancestral branch and the row-wise events
+## overlapping pairs sorting first by ancestor states, then by events number
+branch.site.order=branch.site.count[order(branch.site.count[,21],branch.site.count[,22]),]
+
+
+
+#### column stats calculation and visualization
+## calcualte column sums
+branch.events=apply(branch.site.order[,1:20],2,function(x){length(which(x%%11!=0))})
+## count sites switching from state 2/3/4 to state 1
+gain=matrix(as.numeric(branch.site%%10==1 & branch.site%%11!=0 & branch.site != 51),nrow=total.unambi)
+## count sites switching from state 5 to state 1
+rearrange.in=matrix(as.numeric(branch.site == 51),nrow=total.unambi)
+## count sites switching from state 1 to state 2/3/4
+loss=matrix(as.numeric(branch.site==12 | branch.site==13 | branch.site==14),nrow=total.unambi)
+## count sites switching from state 1 to state 5
+rearrange.out=matrix(as.numeric(branch.site == 15),nrow=total.unambi)
+## sum events for each branch 
+gain.branchsum=colSums(gain)
+rearrange.in.branchsum=colSums(rearrange.in)
+loss.branchsum=colSums(loss)
+rearrange.out.branchsum=colSums(rearrange.out)
+## calculate changes on the ancestral branch separately
+tmp=sapply(n23,length)
+consensus=unlist(n23[which(tmp==1)])
+ances.conserve=length(consensus[which(consensus==1)])
+ances.nonconserve=length(consensus[which(consensus!=1)])
+##count events on ancestral branch ## eg. n18=2, n22=5,
+ances.change=length(n23)-length(consensus)
+print("ances changes:"); ances.change
+## ouput the data table
+change.total=c()
+for (i in 1:20){
+change.total=rbind(change.total,c(gain.branchsum[i],rearrange.in.branchsum[i],loss.branchsum[i],rearrange.out.branchsum[i]))   
+}
+rownames(change.total)=c("18.16","18.12","22.21","22.9","21.15","21.20","20.19","20.6","19.14","19.17","17.13","17.1","13.2","13.3","14.4","14.5","15.7","15.8","16.10","16.11")
+write.table(t(change.total),file=paste(args,"-events.txt",sep=""))
+## stacked bar plot
+file=paste(args,"-branch-length.svg",sep="")
+svg(file,width=7,height=3)
+barplot(t(change.total), col=c("red","blue","green","yellow"),horiz=F,cex.axis=0.8,las=1)
+dev.off()
 
 
 
